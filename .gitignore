@@ -559,7 +559,7 @@ FodyWeavers.xsd
 *.sln.iml
 
 # output dir
-.output/
+.output/*
 
 # dependency
-.torchvggish/
+.torchvggish/*
