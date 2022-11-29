@@ -1,0 +1,35 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train",
+            "type": "python",
+            "request": "launch",
+            "cwd": "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--config", "configs/train_config.yaml",
+                "--test_dir", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\Test",
+                "--train_dir", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\Train"
+            ]
+        },
+        {
+            "name": "test",
+            "type": "python",
+            "request": "launch",
+            "cwd": "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--test_dir", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\Test\\Clean",
+                "--test_ckpt", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022\\output\\train\\VA_METRIC\\VA_METRIC_state_epoch100.pth"
+            ]
+        },
+    ]
+}
