@@ -31,5 +31,18 @@
                 "--test_ckpt", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022\\output\\train\\VA_METRIC\\VA_METRIC_state_epoch100.pth"
             ]
         },
+        {
+            "name": "debug",
+            "type": "python",
+            "request": "launch",
+            "cwd": "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022",
+            "program": "debug.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--train",
+                "--ckpt_path", "E:\\清华\\大三秋\\视听信息系统导论\\大作业\\STD2022\\output\\debug\\DEBUG_state_epoch_25.pth"
+            ]
+        },
     ]
 }
