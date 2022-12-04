@@ -14,29 +14,34 @@ class VAModel(nn.Module):
         self.data_path = cfg['dataset']['train_dir']
         self.available_sample_num = cfg['va_model']['available_samples']
         self.neg_sample_num = cfg['va_model']['negative_samples']
-        self.transformer_cfg = AudioTransformerConfig(cfg)
+        # self.transformer_cfg = AudioTransformerConfig(cfg)
         # self.video_transformer_cfg = VideoTransformerConfig(cfg)
         self.audio_extractor = nn.Sequential(
             nn.Conv1d(10, 32, 3, 1, 1),
             nn.Conv1d(32, 64, 3, 1, 1),
+            nn.Conv1d(64, 32, 3, 1, 1),
+            nn.Conv1d(32, 1, 3, 1, 1)
         )
         self.video_extractor = nn.Sequential(
             nn.Conv1d(10, 32, 3, 1, 1),
             nn.Conv1d(32, 64, 3, 1, 1),
             nn.Conv1d(64, 64, 3, 1, 1),
+            nn.Conv1d(64, 32, 3, 1, 1),
+            nn.Conv1d(32, 1, 3, 1, 1),
+            nn.Linear(512, 128)
         )
 
-        self.transformer_key = TransformerEncoder(self.transformer_cfg)
-        self.joint_extractor_key = nn.Sequential(     # pos
-            nn.Conv1d(64, 32, 3, 1, 1),
-            nn.Conv1d(32, 1, 3, 1, 1)
-        )
+        # self.transformer_key = TransformerEncoder(self.transformer_cfg)
+        # self.joint_extractor_key = nn.Sequential(     # pos
+        #     nn.Conv1d(64, 32, 3, 1, 1),
+        #     nn.Conv1d(32, 1, 3, 1, 1)
+        # )
         
-        self.transformer_query = TransformerEncoder(self.transformer_cfg)
-        self.joint_extractor_query = nn.Sequential(     # neg
-            nn.Conv1d(64, 32, 3, 1, 1),
-            nn.Conv1d(32, 1, 3, 1, 1)
-        )
+        # self.transformer_query = TransformerEncoder(self.transformer_cfg)
+        # self.joint_extractor_query = nn.Sequential(     # neg
+        #     nn.Conv1d(64, 32, 3, 1, 1),
+        #     nn.Conv1d(32, 1, 3, 1, 1)
+        # )
 
     def forward(self, afeat, vfeat, neg_afeat):
         device = afeat.device
@@ -45,31 +50,32 @@ class VAModel(nn.Module):
         if neg_afeat is None:
             return aemb, vemb
         else:
-            joint_emb_key = self.joint_extract_key(aemb, vemb)
+            # joint_emb_key = self.joint_extract_key(aemb, vemb)
             bz = afeat.shape[0]
             neg_times = int(neg_afeat.shape[0] / bz)
             
             neg_aemb = self.audio_extractor(neg_afeat).squeeze(1)
-            total_aemb = torch.cat((aemb, neg_aemb), dim=0)
-            total_vemb = vemb.repeat(neg_times + 1, 1, 1)
+            total_aemb = torch.cat((aemb, neg_aemb), dim=0).view(neg_times + 1, bz, -1)
+            # total_vemb = vemb.repeat(neg_times + 1, 1, 1)
 
-            joint_emb_query = self.joint_extract_query(total_aemb, total_vemb)
-            joint_emb_query = joint_emb_query.view(neg_times + 1, bz, -1)
+            # joint_emb_query = self.joint_extract_query(total_aemb, total_vemb)
+            # joint_emb_query = joint_emb_query.view(neg_times + 1, bz, -1)
 
-            cos_sim = torch.stack([torch.cosine_similarity(joint_emb_key[i], joint_emb_query[:, i, :], dim=1) for i in range(bz)])
+            # cos_sim = torch.stack([torch.cosine_similarity(joint_emb_key[i], joint_emb_query[:, i, :], dim=1) for i in range(bz)])
+            cos_sim = torch.cosine_similarity(vemb, total_aemb, dim=2).transpose(0, 1) # torch.stack([torch.cosine_similarity(vemb[i], total_aemb[:, i, :], dim=1) for i in range(bz)])
             probs = torch.softmax(cos_sim, dim=1)
             labels = torch.zeros(probs.shape[0], dtype=torch.long).to(device)
             return probs, labels
 
-    def joint_extract_key(self, aemb, vemb):
-        emb_1 = self.transformer_key(torch.cat((vemb, aemb), dim=2).transpose(0, 1)).transpose(0, 1)
-        joint_emb_key = self.joint_extractor_key(emb_1).squeeze(1)
-        return joint_emb_key
+    # def joint_extract_key(self, aemb, vemb):
+    #     emb_1 = self.transformer_key(torch.cat((vemb, aemb), dim=2).transpose(0, 1)).transpose(0, 1)
+    #     joint_emb_key = self.joint_extractor_key(emb_1).squeeze(1)
+    #     return joint_emb_key
     
-    def joint_extract_query(self, total_aemb, total_vemb):
-        emb_2 = self.transformer_query(torch.cat((total_vemb, total_aemb), dim=2).transpose(0, 1)).transpose(0, 1)
-        joint_emb_query = self.joint_extractor_query(emb_2).squeeze(1)
-        return joint_emb_query
+    # def joint_extract_query(self, total_aemb, total_vemb):
+    #     emb_2 = self.transformer_query(torch.cat((total_vemb, total_aemb), dim=2).transpose(0, 1)).transpose(0, 1)
+    #     joint_emb_query = self.joint_extractor_query(emb_2).squeeze(1)
+    #     return joint_emb_query
 
     # def get_neg_samples(self, pos_samples: List, neg_sample_num=-1, available_sample_num=-1):
     #     if available_sample_num == -1:
