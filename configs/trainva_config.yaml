@@ -6,10 +6,10 @@ batchSize: 4
 lr: 0.0005
 lr_decay: 0.9
 lr_decay_epoch: 30
-max_epochs: 1
+max_epochs: 20
 print_freq: 100
-epoch_save: 1
-epoch_valid: 1
+epoch_save: 5
+epoch_valid: 5
 step_log: 100
 output_dir: ./output/debug
 prefix: 'DEBUG'
