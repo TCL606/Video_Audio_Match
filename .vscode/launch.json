@@ -54,10 +54,10 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--valid",
-                "--test_dir", "/mnt/e/清华/大三秋/视听信息系统导论/大作业/STD2022Test/Clean",
+                "--test",
+                "--test_dir", "/mnt/e/清华/大三秋/视听信息系统导论/大作业/Test/Clean",
                 "--valid_npy", "/mnt/e/清华/大三秋/视听信息系统导论/大作业/STD2022/data/valid.npy",
-                "--ckpt_path", "/mnt/e/清华/大三秋/视听信息系统导论/大作业/STD2022/output/debug/DEBUG_state_epoch_1.pth"
+                "--ckpt_path", "/mnt/e/清华/大三秋/视听信息系统导论/大作业/STD2022/output/debug/KEYQUERY_state_epoch_10.pth"
             ]
         },
         {

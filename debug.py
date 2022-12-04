@@ -167,15 +167,16 @@ def valid(args, model=None, npy=None):
         afeats[j] = torch.from_numpy(afeat).float()
     with torch.no_grad():
         if args.gpu:
-            aemb, vemb, joint_emb_1 = model(afeats.cuda(), vfeats.cuda(), None)
+            aemb, vemb = model(afeats.cuda(), vfeats.cuda(), None)
         else:
-            aemb, vemb, joint_emb_1 = model(afeats, vfeats, None)
+            aemb, vemb = model(afeats, vfeats, None)
 
     for i in tqdm(range(339)):
         with torch.no_grad():
             temp_vemb = vemb[i].repeat(339, 1, 1)
-            joint_emb_2 = model.joint_extract_query(aemb, temp_vemb)
-            out = torch.cosine_similarity(joint_emb_1[i], joint_emb_2, dim=1)
+            joint_emb_key = model.joint_extract_key(aemb, temp_vemb)
+            joint_emb_query = model.joint_extract_query(aemb, temp_vemb)
+            out = torch.cosine_similarity(joint_emb_key, joint_emb_query, dim=1)
         top1_acc += i in torch.topk(out, 1).indices
         top5_acc += i in torch.topk(out, 5).indices
         top50_acc += i in torch.topk(out, 50).indices
@@ -189,11 +190,12 @@ def valid(args, model=None, npy=None):
     print(f"top5 acc: {top5_acc}")
     print(f"top50 acc: {top50_acc}")
     print("=========================================")
-    wandb.log({
-        'top1_acc': top1_acc,
-        'top5_acc': top5_acc,
-        'top50_acc': top50_acc
-    })
+    if args.train:
+        wandb.log({
+            'top1_acc': top1_acc,
+            'top5_acc': top5_acc,
+            'top50_acc': top50_acc
+        })
 
 def test(args):
     model = torch.load(args.ckpt_path)
@@ -201,9 +203,9 @@ def test(args):
     vpath = os.path.join(args.test_dir, 'vfeat')
     apath = os.path.join(args.test_dir, 'afeat')
     rst = np.zeros((804, 804))
-    top1_acc = 0
-    top5_acc = 0
-    top50_acc = 0
+    top1 = np.zeros((804, 1))
+    top5 = np.zeros((804, 5))
+    top50 = np.zeros((804, 50))
 
     vfeats = torch.zeros(804, 10, 512).float()
     afeats = torch.zeros(804, 10, 128).float()
@@ -214,20 +216,24 @@ def test(args):
         afeats[j] = torch.from_numpy(afeat).float()
     with torch.no_grad():
         if args.gpu:
-            aemb, vemb, joint_emb_1 = model(afeats.cuda(), vfeats.cuda(), None, None)
+            aemb, vemb = model(afeats.cuda(), vfeats.cuda(), None)
         else:
-            aemb, vemb, joint_emb_1 = model(afeats, vfeats, None, None)
+            aemb, vemb = model(afeats, vfeats, None)
 
     for i in tqdm(range(804)):
         with torch.no_grad():
             temp_vemb = vemb[i].repeat(804, 1, 1)
-            joint_emb_2 = model.joint_extract_query(aemb, temp_vemb)
-            out = torch.cosine_similarity(joint_emb_1[i], joint_emb_2, dim=1)
-        top1_acc += i in torch.topk(out, 1).indices
-        top5_acc += i in torch.topk(out, 5).indices
-        top50_acc += i in torch.topk(out, 50).indices
+            joint_emb_key = model.joint_extract_key(aemb, temp_vemb)
+            joint_emb_query = model.joint_extract_query(aemb, temp_vemb)
+            out = torch.cosine_similarity(joint_emb_key, joint_emb_query, dim=1)
+        top1[i] = torch.topk(out, 1).indices
+        top5[i] = torch.topk(out, 5).indices
+        top50[i] = torch.topk(out, 50).indices
         rst[i] = out.cpu().numpy()
     np.save('test_rst.npy', rst)
+    np.save('test_top1.npy', top1)
+    np.save('test_top5.npy', top5)
+    np.save('test_top50.npy', top50)
 
 def main():
     parser = ArgumentParser()

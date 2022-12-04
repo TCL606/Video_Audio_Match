@@ -42,11 +42,10 @@ class VAModel(nn.Module):
         device = afeat.device
         aemb = self.audio_extractor(afeat).squeeze(1)
         vemb = self.video_extractor(vfeat).squeeze(1)
-
-        joint_emb_key = self.joint_extract_key(aemb, vemb)
         if neg_afeat is None:
-            return aemb, vemb, joint_emb_key
+            return aemb, vemb
         else:
+            joint_emb_key = self.joint_extract_key(aemb, vemb)
             bz = afeat.shape[0]
             neg_times = int(neg_afeat.shape[0] / bz)
             
