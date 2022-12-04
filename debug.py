@@ -173,10 +173,6 @@ def valid(args, model=None, npy=None):
 
     for i in tqdm(range(339)):
         with torch.no_grad():
-            # temp_vemb = vemb[i].repeat(339, 1, 1)
-            # joint_emb_key = model.joint_extract_key(aemb, temp_vemb)
-            # joint_emb_query = model.joint_extract_query(aemb, temp_vemb)
-            # out = torch.cosine_similarity(joint_emb_key, joint_emb_query, dim=1)
             out = torch.cosine_similarity(vemb[i], aemb, dim=1)
         top1_acc += i in torch.topk(out, 1).indices
         top5_acc += i in torch.topk(out, 5).indices
@@ -223,10 +219,6 @@ def test(args):
 
     for i in tqdm(range(804)):
         with torch.no_grad():
-            # temp_vemb = vemb[i].repeat(804, 1, 1)
-            # joint_emb_key = model.joint_extract_key(aemb, temp_vemb)
-            # joint_emb_query = model.joint_extract_query(aemb, temp_vemb)
-            # out = torch.cosine_similarity(joint_emb_key, joint_emb_query, dim=1)
             out = torch.cosine_similarity(vemb[i], aemb, dim=1)
         top1[i] = torch.topk(out, 1).indices
         top5[i] = torch.topk(out, 5).indices
