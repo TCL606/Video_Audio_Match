@@ -564,3 +564,6 @@ wandb/*
 
 # dependency
 torchvggish/*
+
+# others
+Task1&2/*
