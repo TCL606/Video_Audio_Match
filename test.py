@@ -1,4 +1,4 @@
-import models
+import models_exp
 import torch
 import numpy as np
 import os
@@ -16,17 +16,17 @@ def main():
     parser.add_argument('--test_ckpt',
                         type=str,
                         help="test checkpoint file",
-                        default="./checkpoints/VA_METRIC_state_epoch100.pth")
+                        default="./output/train/VA_METRIC/VA_METRIC_state_epoch100.pth")
     parser.add_argument('--gpu', action='store_true', help='use gpu')
     parser.add_argument('--output_dir',
                         type=str,
                         help='output directory',
-                        default='./output_test')
+                        default='./output/test')
 
     args = parser.parse_args()
 
     epoch = 100
-    model = models.FrameByFrame()
+    model = models_exp.FrameByFrame()
     ckpt = torch.load(args.test_ckpt, map_location='cpu')
     model.load_state_dict(ckpt)
     model.eval()
@@ -65,6 +65,9 @@ def main():
     rst = np.zeros((804, 804))
     vfeats = torch.zeros(804, 512, 10).float()
     afeats = torch.zeros(804, 128, 10).float()
+    top1_acc = 0
+    top5_acc = 0
+    top50_acc = 0
     for i in tqdm(range(804)):
         vfeat = np.load(os.path.join(vpath, '%04d.npy' % i))
         for j in range(804):
@@ -76,16 +79,26 @@ def main():
                 vfeats = vfeats.cuda()
                 afeats = afeats.cuda()
             out = model(vfeats, afeats)
-        rst[i] = (out[:, 1] - out[:, 0]).cpu().numpy()
+        temp = (out[:, 1] - out[:, 0]).cpu()
+        top1_acc += i in torch.topk(temp, 1).indices
+        top5_acc += i in torch.topk(temp, 5).indices
+        top50_acc += i in torch.topk(temp, 50).indices
+        rst[i] = temp.numpy()
 
-    np.save('rst_epoch{}.npy'.format(epoch), rst)
+    print("=========================================")
+    print(f"top1 acc: {top1_acc / 804}")
+    print(f"top5 acc: {top5_acc / 804}")
+    print(f"top50 acc: {top50_acc / 804}")
+    print("=========================================")
 
-    print('Test checkpoint epoch {}.'.format(epoch))
+    # np.save('rst_epoch{}.npy'.format(epoch), rst)
 
-    gen_tsample(50)
+    # print('Test checkpoint epoch {}.'.format(epoch))
 
-    tsample = np.load('tsample_{}.npy'.format(50))
-    get_top(tsample, rst)
+    # gen_tsample(50)
+
+    # tsample = np.load('tsample_{}.npy'.format(50))
+    # get_top(tsample, rst)
 
 
 if __name__ == '__main__':

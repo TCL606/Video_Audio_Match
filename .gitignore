@@ -560,6 +560,7 @@ FodyWeavers.xsd
 
 # output dir
 output/*
+wandb/*
 
 # dependency
 torchvggish/*

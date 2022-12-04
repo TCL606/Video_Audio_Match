@@ -13,7 +13,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import LambdaLR as LR_Policy
 
-import models
+import models_exp
 from dataset import VideoFeatDataset as dset
 from tools.config_tools import Config
 from tools import utils
@@ -169,7 +169,7 @@ def main():
                                                num_workers=int(opt.workers))
 
     # create model
-    model = models.FrameByFrame()
+    model = models_exp.FrameByFrame()
 
     criterion = torch.nn.CrossEntropyLoss()
     if opt.cuda:
