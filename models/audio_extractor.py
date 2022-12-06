@@ -2,7 +2,7 @@ from typing import List
 import torch
 import torch.nn as nn
 import numpy as np
-from fairseq.data.audio.audio_utils import _get_torchaudio_fbank, _get_kaldi_fbank
+# from fairseq.data.audio.audio_utils import _get_torchaudio_fbank, _get_kaldi_fbank
 from .subsampler import Conv1dSubsampler
 from .fbank_extractor import FbankExtractor
 from argparse import Namespace

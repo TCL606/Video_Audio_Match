@@ -1,4 +1,3 @@
-from fairseq.modules import TransformerEncoderLayer
 from yaml import FullLoader
 import yaml
 from argparse import ArgumentParser, Namespace
@@ -30,10 +29,14 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
     end = time.time()
     for step_in_epoch, batch in enumerate(train_loader):
         index, afeat, vfeat = batch['index'], batch['afeat'], batch['vfeat']
-        sample_times = 4
-        neg_afeat = train_loader.load_neg_afeat(index, sample_times)
-        probs, labels = model(afeat, vfeat, neg_afeat)
-        loss = criterion(probs, labels)
+        neg_sample_num = cfg['neg_sample_num']
+        neg_afeat = train_loader.load_neg_afeat(index, neg_sample_num)
+        if cfg['cuda']:
+            afeat = afeat.cuda()
+            vfeat = vfeat.cuda()
+            neg_afeat = neg_afeat.cuda()
+        logits, labels = model(afeat, vfeat, neg_afeat)
+        loss = criterion(logits, labels)
 
         losses.update(loss.item(), vfeat.size(0))
 
@@ -137,13 +140,13 @@ def train(args):
                 torch.save(model, path_checkpoint)
                 print("save ckpt at " + path_checkpoint)
             if ((epoch + 1) % train_cfg['epoch_valid']) == 0:
-                valid(args, model, npy=valid_npy)
+                valid(args, model, npy=valid_npy, gpu=train_cfg['cuda'])
     path_checkpoint = os.path.join(train_cfg['output_dir'], f'{train_cfg["prefix"]}_state_epoch_last.pth')
    # utils.save_checkpoint(model.state_dict(), train_cfg['output_dir'], path_checkpoint)
     torch.save(model, path_checkpoint)
     print("save ckpt at " + path_checkpoint)
 
-def valid(args, model=None, npy=None):
+def valid(args, model=None, npy=None, gpu=False):
     if model == None:
         model = torch.load(args.ckpt_path)
     if npy is not None:
@@ -153,34 +156,37 @@ def valid(args, model=None, npy=None):
     model.eval()
     vpath = os.path.join(args.valid_dir, 'vfeat')
     apath = os.path.join(args.valid_dir, 'afeat')
-    rst = np.zeros((339, 339))
+    num = len(valid_idx)
+    rst = np.zeros((num, num))
     top1_acc = 0
     top5_acc = 0
     top50_acc = 0
 
-    vfeats = torch.zeros(339, 10, 512).float()
-    afeats = torch.zeros(339, 10, 128).float()
-    for j in range(339):
+    vfeats = torch.zeros(num, 10, 512).float()
+    afeats = torch.zeros(num, 10, 128).float()
+    for j in range(num):
         vfeat = np.load(os.path.join(vpath, '%04d.npy' % (valid_idx[j])))
         vfeats[j] = torch.from_numpy(vfeat).float()
         afeat = np.load(os.path.join(apath, '%04d.npy' % (valid_idx[j])))
         afeats[j] = torch.from_numpy(afeat).float()
     with torch.no_grad():
-        if args.gpu:
+        if gpu:
+            model.to('cuda')
             aemb, vemb = model(afeats.cuda(), vfeats.cuda(), None)
         else:
+            model.to('cpu')
             aemb, vemb = model(afeats, vfeats, None)
 
-    for i in tqdm(range(339)):
+    for i in tqdm(range(num)):
         with torch.no_grad():
             out = torch.cosine_similarity(vemb[i], aemb, dim=1)
         top1_acc += i in torch.topk(out, 1).indices
         top5_acc += i in torch.topk(out, 5).indices
         top50_acc += i in torch.topk(out, 50).indices
         rst[i] = out.cpu().numpy()
-    top1_acc /= 339
-    top5_acc /= 339
-    top50_acc /= 339
+    top1_acc /= num
+    top5_acc /= num
+    top50_acc /= num
     np.save('valid_rst.npy', rst)
     print("=========================================")
     print(f"top1 acc: {top1_acc}")
@@ -213,17 +219,19 @@ def test(args):
         afeats[j] = torch.from_numpy(afeat).float()
     with torch.no_grad():
         if args.gpu:
+            model.to('cuda')
             aemb, vemb = model(afeats.cuda(), vfeats.cuda(), None)
         else:
+            model.to('cpu')
             aemb, vemb = model(afeats, vfeats, None)
 
     for i in tqdm(range(804)):
         with torch.no_grad():
-            out = torch.cosine_similarity(vemb[i], aemb, dim=1)
+            out = torch.cosine_similarity(vemb[i], aemb, dim=1).cpu()
         top1[i] = torch.topk(out, 1).indices
         top5[i] = torch.topk(out, 5).indices
         top50[i] = torch.topk(out, 50).indices
-        rst[i] = out.cpu().numpy()
+        rst[i] = out.numpy()
     np.save('test_rst.npy', rst)
     np.save('test_top1.npy', top1)
     np.save('test_top5.npy', top5)

@@ -1,7 +1,7 @@
 from argparse import Namespace
 import torch.nn as nn
 import torch
-from fairseq.modules.transformer_layer import TransformerEncoderLayer
+# from fairseq.modules.transformer_layer import TransformerEncoderLayer
 
 class TransformerConfig:
     def __init__(self, config):

@@ -44,10 +44,10 @@ class VADataloader(data.DataLoader):
     #     neg_samples = np.random.choice(np.where(samples == 1)[0], neg_sample_num, replace=False)
     #     return self.dataset.idx[neg_samples]
 
-    def load_neg_afeat(self, pos_samples: List, neg_sample_times, available_sample_num=-1):
+    def load_neg_afeat(self, pos_samples: List, neg_sample_num, available_sample_num=-1):
         if available_sample_num == -1:
             available_sample_num = self.available_sample_num
-        neg_sample_num = len(pos_samples) * neg_sample_times
+        # neg_sample_num = len(pos_samples) * neg_sample_times
         samples = np.ones(available_sample_num, dtype=np.int32)
         samples[list(pos_samples)] = 0
         neg_samples = np.random.choice(np.where(samples == 1)[0], neg_sample_num, replace=False)

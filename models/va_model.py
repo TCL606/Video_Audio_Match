@@ -51,13 +51,12 @@ class VAModel(nn.Module):
             return aemb, vemb
         else:
             bz = afeat.shape[0]
-            neg_times = int(neg_afeat.shape[0] / bz)
             
             neg_aemb = self.audio_extractor(neg_afeat).squeeze(1)
-            total_aemb = torch.cat((aemb, neg_aemb), dim=0).view(neg_times + 1, bz, -1)
+            total_aemb = [torch.cat((aemb[i: i+1], neg_aemb), dim=0) for i in range(bz)]
             
             # vemb: key; ameb: query
-            cos_sim = torch.cosine_similarity(vemb, total_aemb, dim=2).transpose(0, 1) 
-            probs = torch.softmax(cos_sim, dim=1)
-            labels = torch.zeros(probs.shape[0], dtype=torch.long).to(device)
-            return probs, labels
+            cos_sim = torch.stack([torch.cosine_similarity(vemb[i], total_aemb[i], dim=1) for i in range(bz)])
+            # probs = torch.softmax(cos_sim, dim=1)
+            labels = torch.zeros(cos_sim.shape[0], dtype=torch.long).to(device)
+            return cos_sim, labels
