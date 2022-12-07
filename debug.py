@@ -3,7 +3,6 @@ import yaml
 from argparse import ArgumentParser, Namespace
 import yaml
 from yaml import SafeLoader, SafeDumper
-from argparse import Namespace
 import torch
 import torch.nn as nn
 from models.va_model import *
