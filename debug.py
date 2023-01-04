@@ -6,9 +6,11 @@ from yaml import SafeLoader, SafeDumper
 import torch
 import torch.nn as nn
 from models.va_model import *
+from models.vakm_model import *
 from models.transfomer import *
 import numpy as np
 from data.va_dataset import *
+from data.vakm_dataset import *
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torch.autograd import Variable
@@ -24,20 +26,32 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
     """
     batch_time = utils.AverageMeter()
     losses = utils.AverageMeter()
+    losses1 = utils.AverageMeter()
+    losses2 = utils.AverageMeter()
     model.train()
+    if epoch <= -1:
+        alpha = 0
+        beta = 1
+    else:
+        alpha = 1
+        beta = 0
     end = time.time()
     for step_in_epoch, batch in enumerate(train_loader):
-        index, afeat, vfeat = batch['index'], batch['afeat'], batch['vfeat']
+        index, afeat, vfeat, pos_ki = batch['index'], batch['afeat'], batch['vfeat'], batch['kmeans_id']
         neg_sample_num = cfg['neg_sample_num']
-        neg_afeat = train_loader.load_neg_afeat(index, neg_sample_num)
+        neg_afeat, neg_ki = train_loader.load_neg_afeat(index, neg_sample_num)
         if cfg['cuda']:
             afeat = afeat.cuda()
             vfeat = vfeat.cuda()
             neg_afeat = neg_afeat.cuda()
-        logits, labels = model(afeat, vfeat, neg_afeat)
-        loss = criterion(logits, labels)
-
+        logits, labels, k_preds, k_labels = model(afeat, vfeat, neg_afeat, pos_ki, neg_ki)
+        loss1 = criterion(logits, labels)
+        loss2 = nn.functional.cross_entropy(k_preds, k_labels)
+        loss = alpha * loss1 + beta * loss2
+        
         losses.update(loss.item(), vfeat.size(0))
+        losses1.update(loss1.item(), vfeat.size(0))
+        losses2.update(loss2.item(), vfeat.size(0))
 
         optimizer.zero_grad()
         loss.backward()
@@ -54,7 +68,9 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
         if (pbar.n + 1) % cfg['step_log'] == 0:
             log_str = f' Epoch: [{epoch}][{step_in_epoch}/{len(train_loader)}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {losses.val:.4f} ({losses.avg:.4f})'
             wandb.log({
-                'loss': losses.avg
+                'loss': losses.avg,
+                'loss1': losses1.avg,
+                'loss2': losses2.avg
             })
             print(log_str)
             losses.reset()
@@ -82,7 +98,8 @@ def train(args):
     train_dir = model_cfg['dataset']['train_dir']
     train_npy = train_cfg['train_npy']
     valid_npy = train_cfg['valid_npy']
-    train_dataset = VADataset(train_dir, npy=train_npy, split='train')
+    # train_dataset = VADataset(train_dir, npy=train_npy, split='train')
+    train_dataset = VAKMDataset(train_dir, npy=train_npy, kmeans_npy=train_cfg['kmeans_npy'])
 
     print('number of train samples is: {0}'.format(len(train_dataset)))
 
@@ -100,13 +117,13 @@ def train(args):
     print(f'Random Seed: {train_cfg["seed"]}')
 
     # train data loader
-    train_loader = VADataloader(train_dataset,
+    train_loader = VAKMDataloader(train_dataset,
                                 batch_size=train_cfg['batchSize'],
                                 shuffle=True,
                                 num_workers=int(train_cfg['workers']))
 
     # create model
-    model = VAModel(model_cfg)
+    model = VAKMModel(model_cfg)
 
     # criterion
     criterion = torch.nn.CrossEntropyLoss()

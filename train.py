@@ -14,10 +14,11 @@ from torch.autograd import Variable
 from torch.optim.lr_scheduler import LambdaLR as LR_Policy
 
 import models_exp
-from dataset import VideoFeatDataset as dset
+from dataset_exp import VideoFeatDataset as dset
 from tools.config_tools import Config
 from tools import utils
 
+import tqdm
 
 #(batchsize,features,sequence)
 def get_triplet(vfeat, afeat):
@@ -46,7 +47,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     model.train()
 
     end = time.time()
-    for i, (vfeat, afeat) in enumerate(train_loader):
+    # for i, (vfeat, afeat) in enumerate(train_loader):
+    for i, (_, afeat, vfeat) in enumerate(train_loader):
         bz = vfeat.size()[0]
         orders = np.arange(bz).astype('int32')
         shuffle_orders = orders.copy()
@@ -109,7 +111,49 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
                 loss=losses)
             print(log_str)
             print(prob[0], prob[opt.batchSize])
+    valid(opt, model, npy="/root/bqqi/changli/STD2022/data/valid_334.npy", gpu=True)
 
+def valid(args, model=None, npy=None, gpu=False):
+    if model == None:
+        model = torch.load(args.ckpt_path)
+    if npy is not None:
+        valid_idx = np.load(npy)
+    else:
+        valid_idx = np.arange(339)
+    model.eval()
+    vpath = os.path.join(args.valid_dir, 'vfeat')
+    apath = os.path.join(args.valid_dir, 'afeat')
+    num = len(valid_idx)
+    rst = np.zeros((num, num))
+    top1_acc = 0
+    top5_acc = 0
+    top50_acc = 0
+
+    vfeats = torch.zeros(num, 10, 512).float()
+    afeats = torch.zeros(num, 10, 128).float()
+    for j in range(num):
+        vfeat = np.load(os.path.join(vpath, '%04d.npy' % (valid_idx[j])))
+        vfeats[j] = torch.from_numpy(vfeat).float()
+        afeat = np.load(os.path.join(apath, '%04d.npy' % (valid_idx[j])))
+        afeats[j] = torch.from_numpy(afeat).float()
+
+    with torch.no_grad():
+        for i in range(num):
+            out = model(vfeats[i].t().repeat(num, 1, 1).cuda(), afeats.transpose(1, 2).cuda())
+            out = out[:, 1] - out[:, 0]
+            top1_acc += i in torch.topk(out, 1).indices
+            top5_acc += i in torch.topk(out, 5).indices
+            top50_acc += i in torch.topk(out, 50).indices
+            rst[i] = out.cpu().numpy()
+    top1_acc /= num
+    top5_acc /= num
+    top50_acc /= num
+    # np.save('valid_rst.npy', rst)
+    print("=========================================")
+    print(f"top1 acc: {top1_acc}")
+    print(f"top5 acc: {top5_acc}")
+    print(f"top50 acc: {top50_acc}")
+    print("=========================================")
 
 def main():
     parser = ArgumentParser()
@@ -125,6 +169,10 @@ def main():
                       type=str,
                       help="test data directory",
                       default="../Test")
+    parser.add_argument('--valid_dir',
+                      type=str,
+                      help="valid data directory",
+                      default="../Train")
 
     opts = parser.parse_args()
     assert isinstance(opts, object)
@@ -139,7 +187,10 @@ def main():
         os.system('mkdir {0}'.format(opt.checkpoint_folder))
 
     train_dir = opts.train_dir
-    train_dataset = dset(train_dir)
+    # train_dataset = dset(train_dir)
+
+    from data.va_dataset import VADataset
+    train_dataset = VADataset(train_dir, '/root/bqqi/changli/STD2022/data/train_3005.npy')
 
     print('number of train samples is: {0}'.format(len(train_dataset)))
     print('finished loading data')

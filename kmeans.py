@@ -5,10 +5,10 @@ import os
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('--clusters', type=int, default=10)
-    parser.add_argument('--train_idx', type=str, default='/root/bqqi/changli/STD2022/data/train_3239.npy')
+    parser.add_argument('--clusters', type=int, default=22)
+    parser.add_argument('--train_idx', type=str, default='/root/bqqi/changli/STD2022/data/train_3005.npy')
     parser.add_argument('--data_dir', type=str, default='/root/bqqi/changli/Train/afeat')
-    parser.add_argument('--output_dir', type=str, default='/root/bqqi/changli/STD2022/output/kmeans')
+    parser.add_argument('--output_dir', type=str, default='/root/bqqi/changli/STD2022/data/kmeans')
     args = parser.parse_args()
     return args
 
@@ -35,7 +35,7 @@ def main():
     y_pred = cluster(X_train, args=args)
     if not os.path.exists(args.output_dir):
         os.system(f'mkdir {args.output_dir}')
-    np.save(os.path.join(args.output_dir, 'kmeans_3239.npy'), y_pred)
+    np.save(os.path.join(args.output_dir, 'kmeans_3005_22.npy'), y_pred)
 
 if __name__ == '__main__':
     main()
