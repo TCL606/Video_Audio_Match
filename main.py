@@ -1,13 +1,11 @@
 from yaml import FullLoader
 import yaml
 from argparse import ArgumentParser, Namespace
-import yaml
 from yaml import SafeLoader, SafeDumper
 import torch
 import torch.nn as nn
 from models.va_model import *
 from models.vakm_model import *
-from models.transfomer import *
 import numpy as np
 from data.va_dataset import *
 from data.vakm_dataset import *
@@ -20,7 +18,7 @@ import time
 import wandb
 from tqdm import tqdm, trange
 
-def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=None):
+def train_one_epoch(args, train_loader, model, criterion, optimizer, epoch, cfg, pbar=None):
     """
     train for one epoch on the training set
     """
@@ -29,8 +27,8 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
     losses1 = utils.AverageMeter()
     losses2 = utils.AverageMeter()
     model.train()
-    if epoch <= -1:
-        alpha = 0
+    if epoch <= cfg['kmeans_epoch']:
+        alpha = 1
         beta = 1
     else:
         alpha = 1
@@ -67,11 +65,12 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
 
         if (pbar.n + 1) % cfg['step_log'] == 0:
             log_str = f' Epoch: [{epoch}][{step_in_epoch}/{len(train_loader)}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {losses.val:.4f} ({losses.avg:.4f})'
-            wandb.log({
-                'loss': losses.avg,
-                'loss1': losses1.avg,
-                'loss2': losses2.avg
-            })
+            if args.wandb:
+                wandb.log({
+                    'loss': losses.avg,
+                    'loss1': losses1.avg,
+                    'loss2': losses2.avg
+                })
             print(log_str)
             losses.reset()
 
@@ -81,10 +80,6 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, cfg, pbar=
 def train(args):
     model_cfg = yaml.load(open(args.model_config), Loader=SafeLoader)
     train_cfg = yaml.load(open(args.train_config), Loader=SafeLoader)
-    if 'train_dir' in train_cfg:
-        model_cfg['dataset']['train_dir'] = train_cfg['train_dir']
-    if 'test_dir' in train_cfg:
-        model_cfg['dataset']['test_dir'] = train_cfg['test_dir']
 
     # make dir
     if not os.path.exists(train_cfg['output_dir']):
@@ -95,7 +90,8 @@ def train(args):
         elif 'linux' in sys_platform:
             os.system(f'mkdir {train_cfg["output_dir"]}')
 
-    train_dir = model_cfg['dataset']['train_dir']
+    train_dir = train_cfg['train_dir']
+    valid_dir = train_cfg['valid_dir']
     train_npy = train_cfg['train_npy']
     valid_npy = train_cfg['valid_npy']
     # train_dataset = VADataset(train_dir, npy=train_npy, split='train')
@@ -142,36 +138,36 @@ def train(args):
 
     total_steps = train_cfg['max_epochs'] * len(train_loader)
     pbar = tqdm(total=total_steps, leave=False)
-
+    
+    
     name = 'debug' if 'wandb' not in train_cfg else train_cfg['wandb'] 
-    wandb.init(project='std2022', name=name, config=train_cfg, entity='tcl606')
+    if args.wandb:
+        wandb.init(project='std2022', name=name, config=train_cfg, entity='tcl606')
 
     while pbar.n < total_steps:
         for epoch in range(train_cfg['max_epochs']):
-            train_one_epoch(train_loader, model, criterion, optimizer, epoch, train_cfg, pbar)
+            train_one_epoch(args, train_loader, model, criterion, optimizer, epoch, train_cfg, pbar)
             scheduler.step()
             if ((epoch + 1) % train_cfg['epoch_save']) == 0:
                 path_checkpoint = os.path.join(train_cfg['output_dir'], f'{train_cfg["prefix"]}_state_epoch_{epoch + 1}.pth')
-                # utils.save_checkpoint(model.state_dict(), train_cfg['output_dir'], path_checkpoint)
                 torch.save(model, path_checkpoint)
                 print("save ckpt at " + path_checkpoint)
             if ((epoch + 1) % train_cfg['epoch_valid']) == 0:
-                valid(args, model, npy=valid_npy, gpu=train_cfg['cuda'])
+                valid(args, valid_dir=valid_dir, npy=valid_npy, model=model, gpu=train_cfg['cuda'])
     path_checkpoint = os.path.join(train_cfg['output_dir'], f'{train_cfg["prefix"]}_state_epoch_last.pth')
-   # utils.save_checkpoint(model.state_dict(), train_cfg['output_dir'], path_checkpoint)
     torch.save(model, path_checkpoint)
     print("save ckpt at " + path_checkpoint)
 
-def valid(args, model=None, npy=None, gpu=False):
+def valid(args, valid_dir, npy, model=None, ckpt_path=None, gpu=False):
     if model == None:
-        model = torch.load(args.ckpt_path)
+        model = torch.load(ckpt_path)
     if npy is not None:
         valid_idx = np.load(npy)
     else:
         valid_idx = np.arange(339)
     model.eval()
-    vpath = os.path.join(args.valid_dir, 'vfeat')
-    apath = os.path.join(args.valid_dir, 'afeat')
+    vpath = os.path.join(valid_dir, 'vfeat')
+    apath = os.path.join(valid_dir, 'afeat')
     num = len(valid_idx)
     rst = np.zeros((num, num))
     top1_acc = 0
@@ -203,13 +199,13 @@ def valid(args, model=None, npy=None, gpu=False):
     top1_acc /= num
     top5_acc /= num
     top50_acc /= num
-    np.save('valid_rst.npy', rst)
+    # np.save('valid_rst.npy', rst)
     print("=========================================")
     print(f"top1 acc: {top1_acc}")
     print(f"top5 acc: {top5_acc}")
     print(f"top50 acc: {top50_acc}")
     print("=========================================")
-    if args.train:
+    if args.wandb:
         wandb.log({
             'top1_acc': top1_acc,
             'top5_acc': top5_acc,
@@ -250,8 +246,8 @@ def test(args):
         rst[i] = out.numpy()
     np.save('test_rst.npy', rst)
     np.save('test_top1.npy', top1)
-    np.save('test_top5.npy', top5)
-    np.save('test_top50.npy', top50)
+    # np.save('test_top5.npy', top5)
+    # np.save('test_top50.npy', top50)
 
 def main():
     parser = ArgumentParser()
@@ -269,7 +265,7 @@ def main():
     parser.add_argument('--ckpt_path', 
                         type=str, 
                         help='path to checkpoint', 
-                        default='./output/debug/DEBUG_state_epoch_last.pth')
+                        default='./output/debug/KMeans5e-4_state_epoch_last.pth')
     parser.add_argument('--valid_dir',
                         type=str,
                         help='valid data directory',
@@ -277,19 +273,20 @@ def main():
     parser.add_argument('--valid_npy',
                         type=str,
                         help='valid numpy idx',
-                        default='../data/valid.npy')
+                        default='./data/valid_334.npy')
     parser.add_argument('--test_dir',
                         type=str,
                         help='test data directory',
-                        default='../Test/Clean')
+                        default='../Test/Noise')
     parser.add_argument('--gpu', action='store_true', help='use gpu')
+    parser.add_argument('--wandb', action='store_true', help='use wandb')
 
     args = parser.parse_args()
     if args.train:
         train(args)
 
     if args.valid:
-        valid(args, None, args.valid_npy)
+        valid(args, valid_dir=args.valid_dir, npy=args.valid_npy, model=None, ckpt_path=args.ckpt_path, gpu=args.gpu)
 
     if args.test:
         test(args)

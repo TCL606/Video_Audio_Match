@@ -1,21 +1,13 @@
-from .audio_extractor import AudioExtractor
-from .video_extractor import VideoExtractor
 from typing import List
 import numpy as np
 import torch.nn as nn
 import torch
 import torchaudio
 import os
-from .transfomer import *
 
 class VAModel(nn.Module):
     def __init__(self, cfg: dict) -> None:
         super().__init__()
-        self.data_path = cfg['dataset']['train_dir']
-        self.available_sample_num = cfg['va_model']['available_samples']
-        self.neg_sample_num = cfg['va_model']['negative_samples']
-        # self.transformer_cfg = AudioTransformerConfig(cfg)
-        # self.video_transformer_cfg = VideoTransformerConfig(cfg)
         self.audio_extractor = nn.Sequential(
             nn.Conv1d(10, 32, 3, 1, 1),
             nn.Conv1d(32, 64, 3, 1, 1),
@@ -30,18 +22,6 @@ class VAModel(nn.Module):
             nn.Conv1d(32, 1, 3, 1, 1),
             nn.Linear(512, 128)
         )
-
-        # self.transformer_key = TransformerEncoder(self.transformer_cfg)
-        # self.joint_extractor_key = nn.Sequential(     # pos
-        #     nn.Conv1d(64, 32, 3, 1, 1),
-        #     nn.Conv1d(32, 1, 3, 1, 1)
-        # )
-        
-        # self.transformer_query = TransformerEncoder(self.transformer_cfg)
-        # self.joint_extractor_query = nn.Sequential(     # neg
-        #     nn.Conv1d(64, 32, 3, 1, 1),
-        #     nn.Conv1d(32, 1, 3, 1, 1)
-        # )
 
     def forward(self, afeat, vfeat, neg_afeat):
         device = afeat.device

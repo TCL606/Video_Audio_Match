@@ -1,27 +1,3 @@
-audio_transformer:
-  ## single layer
-  dropout: 0.1
-  embed_dim: 640
-  ffn_embed_dim: 1024
-  
-  ## transformer encoder
-  num_layers: 1
-
-# video_transformer:
-#   ## single layer
-#   dropout: 0.1
-#   embed_dim: 512
-#   ffn_embed_dim: 1024
-  
-#   ## transformer encoder
-#   num_layers: 0
-
-va_model:
-  negative_samples: 100
-  available_samples: 3000
-
-dataset:
-  train_dir: ../Train
-  test_dir: ../Test/Clean
-
-
+video_feat_shape: [10, 512]
+audio_feat_shape: [10, 128]
+kmeans_num: 22

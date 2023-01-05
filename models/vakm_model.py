@@ -1,21 +1,18 @@
-from .audio_extractor import AudioExtractor
-from .video_extractor import VideoExtractor
 from typing import List
 import numpy as np
 import torch.nn as nn
 import torch
 import torchaudio
 import os
-from .transfomer import *
 
 class VAKMModel(nn.Module):
     def __init__(self, cfg: dict) -> None:
         super().__init__()
-        self.data_path = cfg['dataset']['train_dir']
-        self.available_sample_num = cfg['va_model']['available_samples']
-        self.neg_sample_num = cfg['va_model']['negative_samples']
+        self.video_shape = cfg['video_feat_shape']
+        self.audio_shape = cfg['audio_feat_shape']
+        self.kmeans_num = cfg['kmeans_num']
         self.audio_extractor = nn.Sequential(
-            nn.Conv1d(10, 32, 3, 1, 1),
+            nn.Conv1d(self.audio_shape[0], 32, 3, 1, 1),
             nn.Conv1d(32, 64, 3, 1, 1),
         )
         self.aemb_extractor = nn.Sequential(
@@ -24,18 +21,18 @@ class VAKMModel(nn.Module):
         )
         self.aaux_extractor = nn.Sequential(
             nn.Conv1d(64, 1, 3, 1, 1),
-            nn.Linear(128, 22)
+            nn.Linear(self.audio_shape[1], self.kmeans_num)
         )
 
         self.video_extractor = nn.Sequential(
-            nn.Conv1d(10, 32, 3, 1, 1),
+            nn.Conv1d(self.video_shape[0], 32, 3, 1, 1),
             nn.Conv1d(32, 64, 3, 1, 1),
             nn.Conv1d(64, 64, 3, 1, 1),
         )
         self.vemb_extractor = nn.Sequential(
             nn.Conv1d(64, 32, 3, 1, 1),
             nn.Conv1d(32, 1, 3, 1, 1),
-            nn.Linear(512, 128)
+            nn.Linear(self.video_shape[1], self.audio_shape[1])
         )
 
     def ahidden_extract(self, afeat):
