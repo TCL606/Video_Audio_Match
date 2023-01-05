@@ -21,7 +21,7 @@ def main():
                         default='./output/debug/KMeans5e-4_state_epoch_last.pth')
     args = parser.parse_args()
 
-    model = torch.load(args.ckpt_path)
+    model = torch.load(args.ckpt_path, map_location='cpu')
     if args.gpu:
         model.cuda().eval()
     else:
