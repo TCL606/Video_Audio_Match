@@ -88,10 +88,10 @@ def train(args):
         elif 'linux' in sys_platform:
             os.system(f'mkdir {train_cfg["output_dir"]}')
 
-    train_dir = train_cfg['train_dir']
-    valid_dir = train_cfg['valid_dir']
-    train_npy = train_cfg['train_npy']
-    valid_npy = train_cfg['valid_npy']
+    train_dir = args.train_dir if args.train_dir else train_cfg['train_dir']
+    valid_dir = args.valid_dir if args.valid_dir else train_cfg['valid_dir']
+    train_npy = args.train_npy if args.train_npy else train_cfg['train_npy']
+    valid_npy = args.valid_npy if args.valid_npy else train_cfg['valid_npy']
     # train_dataset = VADataset(train_dir, npy=train_npy, split='train')
     train_dataset = VAKMDataset(train_dir, npy=train_npy, kmeans_npy=train_cfg['kmeans_npy'])
 
@@ -140,7 +140,7 @@ def train(args):
     
     name = 'debug' if 'wandb' not in train_cfg else train_cfg['wandb'] 
     if args.wandb:
-        wandb.init(project='std2022', name=name, config=train_cfg, entity='tcl606')
+        wandb.init(project='std2022', name=name, config=train_cfg)
 
     while pbar.n < total_steps:
         for epoch in range(train_cfg['max_epochs']):
@@ -216,9 +216,7 @@ def test(args):
     vpath = os.path.join(args.test_dir, 'vfeat')
     apath = os.path.join(args.test_dir, 'afeat')
     rst = np.zeros((804, 804))
-    top1 = np.zeros((804, 1))
-    top5 = np.zeros((804, 5))
-    top50 = np.zeros((804, 50))
+    top = np.zeros((804, int(args.k)))
 
     vfeats = torch.zeros(804, 10, 512).float()
     afeats = torch.zeros(804, 10, 128).float()
@@ -238,14 +236,10 @@ def test(args):
     for i in tqdm(range(804)):
         with torch.no_grad():
             out = torch.cosine_similarity(vemb[i], aemb, dim=1).cpu()
-        top1[i] = torch.topk(out, 1).indices
-        top5[i] = torch.topk(out, 5).indices
-        top50[i] = torch.topk(out, 50).indices
+        top[i] = torch.topk(out, int(args.k)).indices
         rst[i] = out.numpy()
     np.save('test_rst.npy', rst)
-    np.save('test_top1.npy', top1)
-    # np.save('test_top5.npy', top5)
-    # np.save('test_top50.npy', top50)
+    np.save('test_top%s.npy' % args.k, top)
 
 def main():
     parser = ArgumentParser()
@@ -264,18 +258,12 @@ def main():
                         type=str, 
                         help='path to checkpoint', 
                         default='./output/debug/KMeans5e-4_state_epoch_last.pth')
-    parser.add_argument('--valid_dir',
-                        type=str,
-                        help='valid data directory',
-                        default='../Train')
-    parser.add_argument('--valid_npy',
-                        type=str,
-                        help='valid numpy idx',
-                        default='./data/valid_334.npy')
-    parser.add_argument('--test_dir',
-                        type=str,
-                        help='test data directory',
-                        default='../Test/Noise')
+    parser.add_argument('--train_dir', type=str, help='train data directory')
+    parser.add_argument('--valid_dir', type=str, help='valid data directory')
+    parser.add_argument('--test_dir', type=str, help='test data directory')
+    parser.add_argument('--train_npy', type=str, help='train numpy idx')
+    parser.add_argument('--valid_npy', type=str, help='valid numpy idx')
+    parser.add_argument('-k', default='1', help='test in the sense of top k accuracy')
     parser.add_argument('--gpu', action='store_true', help='use gpu')
     parser.add_argument('--wandb', action='store_true', help='use wandb')
 
