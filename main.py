@@ -36,7 +36,7 @@ def train_one_epoch(args, train_loader, model, criterion, optimizer, epoch, cfg,
         index, afeat, vfeat, pos_ki = batch['index'], batch['afeat'], batch['vfeat'], batch['kmeans_id']
         neg_sample_num = cfg['neg_sample_num']
         neg_afeat, neg_ki = train_loader.load_neg_afeat(index, neg_sample_num)
-        if cfg['cuda']:
+        if args.gpu:
             afeat = afeat.cuda()
             vfeat = vfeat.cuda()
             neg_afeat = neg_afeat.cuda()
@@ -98,13 +98,13 @@ def train(args):
     print('number of train samples is: {0}'.format(len(train_dataset)))
 
     torch.manual_seed(train_cfg['seed'])
-    if torch.cuda.is_available() and not train_cfg['cuda']:
+    if torch.cuda.is_available() and not args.gpu:
         print(
             "WARNING: You have a CUDA device, so you should probably run with \"cuda: True\""
         )
     else:
-        if train_cfg['cuda']:
-            torch.cuda.set_device(int(train_cfg['gpu_id']))
+        if args.gpu:
+            # torch.cuda.set_device(int(train_cfg['gpu_id']))
             #os.environ['CUDA_VISIBLE_DEVICES'] = train_cfg.gpu_id
             cudnn.benchmark = True
 
@@ -122,7 +122,7 @@ def train(args):
     # criterion
     criterion = torch.nn.CrossEntropyLoss()
 
-    if train_cfg['cuda']:
+    if args.gpu:
         print('shift model and criterion to GPU .. ')
         model = model.cuda()
         criterion = criterion.cuda()
@@ -151,14 +151,14 @@ def train(args):
                 torch.save(model, path_checkpoint)
                 print("save ckpt at " + path_checkpoint)
             if ((epoch + 1) % train_cfg['epoch_valid']) == 0:
-                valid(args, valid_dir=valid_dir, npy=valid_npy, model=model, gpu=train_cfg['cuda'])
+                valid(args, valid_dir=valid_dir, npy=valid_npy, model=model, gpu=args.gpu)
     path_checkpoint = os.path.join(train_cfg['output_dir'], f'{train_cfg["prefix"]}_state_epoch_last.pth')
     torch.save(model, path_checkpoint)
     print("save ckpt at " + path_checkpoint)
 
 def valid(args, valid_dir, npy, model=None, ckpt_path=None, gpu=False):
     if model == None:
-        model = torch.load(ckpt_path)
+        model = torch.load(ckpt_path, map_location='cpu')
     if npy is not None:
         valid_idx = np.load(npy)
     else:
@@ -211,7 +211,7 @@ def valid(args, valid_dir, npy, model=None, ckpt_path=None, gpu=False):
         })
 
 def test(args):
-    model = torch.load(args.ckpt_path)
+    model = torch.load(args.ckpt_path, map_location='cpu')
     model.eval()
     vpath = os.path.join(args.test_dir, 'vfeat')
     apath = os.path.join(args.test_dir, 'afeat')
