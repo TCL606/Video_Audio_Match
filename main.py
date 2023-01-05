@@ -1,7 +1,6 @@
-from yaml import FullLoader
 import yaml
-from argparse import ArgumentParser, Namespace
-from yaml import SafeLoader, SafeDumper
+from argparse import ArgumentParser
+from yaml import SafeLoader
 import torch
 import torch.nn as nn
 from models.va_model import *
@@ -11,12 +10,11 @@ from data.va_dataset import *
 from data.vakm_dataset import *
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-from torch.autograd import Variable
 from torch.optim.lr_scheduler import LambdaLR as LR_Policy
 from tools import utils
 import time
 import wandb
-from tqdm import tqdm, trange
+from tqdm import tqdm
 
 def train_one_epoch(args, train_loader, model, criterion, optimizer, epoch, cfg, pbar=None):
     """
