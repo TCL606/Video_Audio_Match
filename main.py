@@ -266,11 +266,11 @@ def main():
                         default='./output/debug/KMeans5e-4_state_epoch_last.pth')
     parser.add_argument('--valid_dir',
                         type=str,
-                        help='valid data directory',
+                        help='valid data directory; only take effect when valid is True',
                         default='../Train')
     parser.add_argument('--valid_npy',
                         type=str,
-                        help='valid numpy idx',
+                        help='valid numpy idx; only take effect when valid is True',
                         default='./data/valid_334.npy')
     parser.add_argument('--test_dir',
                         type=str,
