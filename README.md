@@ -28,19 +28,10 @@
 
 ### 2.4 具体实现
 
-我们主要使用卷积神经网络来实现，因为现有的文献表明卷积神经网络在音视频匹配任务中有比较好的表现。对于音视频匹配任务，用交叉熵作为损失函数$L_1$；对于预测KMeans标签的辅助任务，用交叉熵作为损失函数$L_2$。最终的损失函数L可写为如下形式：
-$$
-\begin{align*}
-\begin{split}
-L= \left \{
-\begin{array}{}
-    L_{1}+\beta L_{2},                    & if\quad epoch<N\\
-    L_1     & otherwise
-\end{array}
-\right.
-\end{split}
-\end{align*}
-$$
+我们主要使用卷积神经网络来实现，因为现有的文献表明卷积神经网络在音视频匹配任务中有比较好的表现。对于音视频匹配任务，用交叉熵作为损失函数L1；对于预测KMeans标签的辅助任务，用交叉熵作为损失函数L2。最终的损失函数L可写为如下形式：
+
+![formula](img/formula.png)
+
 其中β 和N为超参数。
 
 ![Structure](img/Structure.png)
